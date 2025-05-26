@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+pandas
+langchain
+openai
+python-dotenv
+ollama
+langchain-community
+pinecone
+pyreadline3
+langchain-ollama
+sentence-transformers
+tqdm
