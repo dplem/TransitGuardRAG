@@ -1,16 +1,21 @@
-# TransitGuardRAG: Pinecone Embedding Query API
+# TransitGuardRAG: Pinecone + Claude RAG API
 
 ## Overview
 
-This project provides a FastAPI-based API for querying a Pinecone vector database using embedding vectors. It also includes a Python script to generate embeddings from natural language questions using `sentence-transformers` and query Pinecone for the most relevant results.
+This project provides a FastAPI-based API for querying a Pinecone vector database using embedding vectors and generating answers with Anthropic's Claude Haiku 3 model. It includes scripts for embedding questions, querying the API, and is ready for deployment on Railway.
 
 ---
 
 ## Features
-- **/query endpoint:** Accepts a POST request with an embedding vector and returns the top matches from Pinecone.
+- **/query endpoint:** Accepts a POST request with an embedding vector and question, returns a generated answer and sources.
 - **/health endpoint:** Simple health check for the API.
-- **Python client script:** Converts a question to an embedding and queries Pinecone for relevant results.
-- **Dockerized:** Easily build and run the API in a container.
+- **Special queries:**
+  - Total number of crimes today
+  - Total number of traffic accidents today
+  - Safest line in the last 7 days
+  - Closest/nearby stations
+- **Python client script:** Converts a question to an embedding and queries the API (local or Railway).
+- **Dockerized & Railway-ready:** Easily build and run the API in a container or deploy to Railway.
 
 ---
 
@@ -18,12 +23,14 @@ This project provides a FastAPI-based API for querying a Pinecone vector databas
 ```
 TransitGuardRAG/
 │
-├── main.py                # FastAPI app for Pinecone querying
-├── query_pinecone.py      # Python script to embed a question and query Pinecone
+├── main.py                  # FastAPI app for Pinecone + Claude querying
+├── query_pinecone.py        # Python script to embed a question and query local API
+├── railway_query_pinecone.py# Python script to query deployed Railway API
 ├── requirements.txt
 ├── Dockerfile
+├── start.sh                 # Entrypoint for Railway
 ├── README.md
-└── .env                   # Environment variables (not committed)
+└── .env                     # Environment variables (not committed)
 ```
 
 ---
@@ -42,12 +49,15 @@ pip install -r requirements.txt
 ```
 
 ### 3. Environment Variables
-Create a `.env` file in the root directory:
+Create a `.env` file in the root directory with the following:
 ```
 PINECONE_API_KEY=your-pinecone-api-key
+CLAUDE_API_KEY=your-anthropic-claude-api-key
 ```
 
-### 4. Run the API Locally
+---
+
+## Running the API Locally
 ```bash
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
@@ -58,79 +68,92 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 ### Build and Run
 ```bash
-docker build -t rag-csv .
-docker run --env-file .env -p 8000:8000 rag-csv
+docker build -t transitguardrag .
+docker run --env-file .env -p 8000:8000 transitguardrag
 ```
+
+---
+
+## Railway Deployment
+
+1. **Ensure your repo is connected to Railway.**
+2. **Set environment variables** (`PINECONE_API_KEY`, `CLAUDE_API_KEY`) in the Railway dashboard.
+3. **Dockerfile** and **start.sh** are already configured for Railway:
+   - `start.sh` ensures the app listens on the correct port.
+   - Dockerfile uses `CMD ["sh", "start.sh"]`.
+4. **Deploy!**
 
 ---
 
 ## API Documentation
 
 ### POST `/query`
-Query the Pinecone index with an embedding vector.
+Query the Pinecone index and generate an answer with Claude.
 
 **Request Body:**
 ```json
 {
   "embedding": [0.1, 0.2, 0.3, ...],
-  "top_k": 5
+  "top_k": 5,
+  "question": "What are the stations near me?"
 }
 ```
 
 **Response:**
 ```json
 {
-  "matches": [
-    {"id": "vec1", "score": 0.95, "metadata": {"source": "..."}},
-    ...
-  ]
+  "answer": "The stations near your current location are: ...",
+  "sources": [ ... ]
 }
 ```
+
+#### Special Queries
+- "total number of crimes today"
+- "total number of traffic accidents today"
+- "safest line in the last 7 days"
+- "stations near me" or "closest station"
 
 ### GET `/health`
 Health check endpoint. Returns `{ "status": "healthy" }`.
 
 ---
 
-## Python Client Script: `query_pinecone.py`
+## Python Client Scripts
 
-This script takes a question, generates an embedding using `sentence-transformers`, and queries the Pinecone API for the most relevant results.
+### Local API Example: `query_pinecone.py`
+Queries a locally running API.
 
-### How to Run the Script
+### Railway API Example: `railway_query_pinecone.py`
+Queries the deployed Railway API.
 
-1. **Ensure the API is running** (see above for local or Docker instructions).
-2. **Install dependencies** (if not already):
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. **Run the script:**
-   ```bash
-   python query_pinecone.py
-   ```
-
-**Example usage in the script:**
 ```python
 import requests
 from sentence_transformers import SentenceTransformer
 
-# The question to embed and query
-question = "What is the ridership on route 5?"
-
-# Load a sentence-transformers model (use the same model as used for Pinecone embeddings)
+question = "What are the stations near me?"
 model = SentenceTransformer('all-MiniLM-L6-v2')
 embedding = model.encode(question).tolist()
 
 response = requests.post(
-    "http://localhost:8000/query",
-    json={"embedding": embedding, "top_k": 5}
+    "https://web-production-1e02.up.railway.app/query",
+    json={"embedding": embedding, "top_k": 5, "question": question}
 )
+
 print(response.json())
 ```
 
-- The embedding model in `query_pinecone.py` should match the model used to generate the embeddings stored in Pinecone.
-- The `/query` endpoint only accepts POST requests with a JSON body containing the embedding vector.
-- The `/health` endpoint is for health checks and returns a simple status message.
-- The API does not provide a root `/` endpoint; accessing it will return a 404.
+---
+
+## Troubleshooting Railway Deployment
+- Ensure `start.sh` is executable (`git update-index --chmod=+x start.sh`)
+- All required environment variables must be set in Railway dashboard
+- Check logs for port or permission errors
+- Use `CMD ["sh", "start.sh"]` in Dockerfile
+
+---
+
+## Contributing
+Pull requests are welcome! For major changes, please open an issue first to discuss what you would like to change.
 
 ---
 
