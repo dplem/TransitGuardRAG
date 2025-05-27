@@ -8,6 +8,7 @@ ollama
 langchain-community
 pinecone
 pyreadline3
-langchain-ollama
 sentence-transformers
 tqdm
+anthropic
+requests==2.31.0

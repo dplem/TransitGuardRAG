@@ -1,10 +1,16 @@
 import os
+import requests
 from dotenv import load_dotenv
 load_dotenv()
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from pinecone import Pinecone
-from langchain_ollama import OllamaLLM
+import anthropic
+
+# Claude API config
+CLAUDE_API_KEY = os.environ.get("CLAUDE_API_KEY")
+CLAUDE_API_URL = "https://api.anthropic.com/v1/messages"
+CLAUDE_MODEL = "claude-3-haiku-20240307"
 
 # Pinecone config
 PINECONE_API_KEY = os.environ.get("PINECONE_API_KEY")
@@ -14,8 +20,30 @@ INDEX_HOST = "https://csv-embeddings-mz1rti3.svc.aped-4627-b74a.pinecone.io"
 pc = Pinecone(api_key=PINECONE_API_KEY)
 index = pc.Index(host=INDEX_HOST)
 
-# Initialize Ollama LLM
-llm = OllamaLLM(model="llama3.2:latest")
+def call_claude(prompt: str) -> str:
+    headers = {
+        "x-api-key": CLAUDE_API_KEY,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json"
+    }
+    data = {
+        "model": CLAUDE_MODEL,
+        "max_tokens": 512,
+        "messages": [
+            {"role": "user", "content": prompt}
+        ]
+    }
+    try:
+        response = requests.post(CLAUDE_API_URL, headers=headers, json=data, timeout=30)
+        response.raise_for_status()
+        result = response.json()
+        # Claude API returns a list of content blocks
+        if "content" in result and isinstance(result["content"], list):
+            return "".join([block.get("text", "") for block in result["content"]])
+        return result.get("content", "")
+    except Exception as e:
+        print(f"Claude API error: {e}")
+        return "Error: Claude API call failed."
 
 app = FastAPI(title="Pinecone Query API", version="1.0.0")
 
@@ -153,7 +181,7 @@ async def query_pinecone(request: QueryRequest):
             answer = f"The closest stations to your current location are: {station_list}."
         else:
             prompt = f"Context from database:\n{context}\n\nQuestion: {request.question}\nAnswer:"
-            answer = llm(prompt)
+            answer = call_claude(prompt)
         sources = [m['metadata'] for m in matches]
         return QueryResponse(answer=answer, sources=sources)
     except Exception as e:
