@@ -1,4 +1,4 @@
-# TransitGuardRAG: Pinecone + Claude RAG API
+# TransitGuardRAG: Pinecone + Claude RAG API + Railway Cloud
 
 ## Overview
 
