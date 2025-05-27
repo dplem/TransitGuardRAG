@@ -2,10 +2,10 @@ import requests
 from sentence_transformers import SentenceTransformer
 
 # The question to embed and query
-#question = "What are the stations near me?"
+question = "What are the stations near me?"
 #question = "What are the total number of crimes today?"
 #question = "What are the total number of traffic accidents today?"
-question = "What is the safest line in the last 7 days?"
+#question = "What is the safest line in the last 7 days?"
 
 # Load a sentence-transformers model (use the same model as used for Pinecone embeddings)
 model = SentenceTransformer('all-MiniLM-L6-v2')
